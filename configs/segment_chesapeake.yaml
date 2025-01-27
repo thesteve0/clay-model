@@ -1,6 +1,6 @@
 # lightning.pytorch==2.1.2
 seed_everything: 42
-data:
+data:  # These need to be changed
   train_chip_dir: data/cvpr/ny/train/chips/
   train_label_dir: data/cvpr/ny/train/labels/
   val_chip_dir: data/cvpr/ny/val/chips/
@@ -8,9 +8,9 @@ data:
   metadata_path: configs/metadata.yaml
   batch_size: 16
   num_workers: 8
-  platform: naip
+  platform: hls  #TODO what do I set this to?
 model:
-  num_classes: 7
+  num_classes: 110
   ckpt_path: checkpoints/clay-v1.5.ckpt
   lr: 1e-5
   wd: 0.05
@@ -28,7 +28,7 @@ trainer:
   default_root_dir: checkpoints/segment
   fast_dev_run: False
   num_sanity_val_steps: 0
-  logger:
+  logger:  # either make an account and set it up or remove the whole logger section
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
         entity: developmentseed
@@ -40,14 +40,14 @@ trainer:
       init_args:
         dirpath: checkpoints/segment
         auto_insert_metric_name: False
-        filename: chesapeake-7class-segment_epoch-{epoch:02d}_val-iou-{val/iou:.4f}
+        filename: sc-county-lulc-segment_epoch-{epoch:02d}_val-iou-{val/iou:.4f} #TODO should I rename this?
         monitor: val/iou
         mode: max
         save_last: True
         save_top_k: 2
         save_weights_only: True
         verbose: True
-    - class_path: lightning.pytorch.callbacks.LearningRateMonitor
+    - class_path: lightning.pytorch.callbacks.LearningRateMonitor  # remove if I remove the logger
       init_args:
         logging_interval: step
   plugins:

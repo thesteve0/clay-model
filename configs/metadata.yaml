@@ -1,3 +1,5 @@
+# copy this and name it HLS
+hls:
 sentinel-2-l2a:
   band_order:
     - blue

@@ -9,6 +9,7 @@ data:
     - linz
     - modis
     - naip
+    - hls
     - sentinel-1-rtc
     - sentinel-2-l2a
   batch_size: 1

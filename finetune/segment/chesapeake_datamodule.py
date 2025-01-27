@@ -46,6 +46,10 @@ class ChesapeakeDataset(Dataset):
         )
 
         # Load chip and label file names
+        # The 1k here is to limit this to 1k chips, if you want all then remove it
+        # TODO I probably need to change these to match my naming convetions
+        # THe end result of this is 2 lists chips and labels
+        # chip[i] = label[i] The label that corresponds to that chip - just like we did in fiftyone code
         self.chips = [chip_path.name for chip_path in self.chip_dir.glob("*.npy")][
             :1000
         ]
@@ -87,13 +91,11 @@ class ChesapeakeDataset(Dataset):
         chip = np.load(chip_name).astype(np.float32)
         label = np.load(label_name)
 
-        # Remap labels to match desired classes
-        label_mapping = {1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 15: 6}
-        remapped_label = np.vectorize(label_mapping.get)(label)
+
 
         sample = {
             "pixels": self.transform(torch.from_numpy(chip)),
-            "label": torch.from_numpy(remapped_label[0]),
+            "label": torch.from_numpy(label),
             "time": torch.zeros(4),  # Placeholder for time information
             "latlon": torch.zeros(4),  # Placeholder for latlon information
         }

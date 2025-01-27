@@ -63,8 +63,9 @@ class ChesapeakeSegmentor(L.LightningModule):
         Returns:
             torch.Tensor: The segmentation logits.
         """
+        # TODO update these to match HLS
         waves = torch.tensor([0.65, 0.56, 0.48, 0.842])  # NAIP wavelengths
-        gsd = torch.tensor(1.0)  # NAIP GSD
+        gsd = torch.tensor(30.0)  # HLS GSD
 
         # Forward pass through the network
         return self.model(

@@ -1,0 +1,24 @@
+fiftyone
+
+# Core ML frameworks
+torch>=2.4.0+cu121  # Using specified CUDA version
+torchvision>=0.19.0+cu121
+lightning>=2.2.0  # Latest stable version
+
+# Deep Learning utilities
+einops>=0.7.0
+timm>=0.9.0  # Vision transformer models and utilities
+vit-pytorch>=1.0.0  # Vision transformer implementations
+
+# Data processing and visualization
+geopandas>=0.14.0
+matplotlib>=3.8.0
+scikit-image>=0.22.0
+scikit-learn>=1.4.0
+
+# Configuration and experiment tracking
+python-box>=7.1.0
+jsonargparse[signatures]>=4.27.7
+wandb>=0.16.0
+
+--extra-index-url https://download.pytorch.org/whl/cu121
