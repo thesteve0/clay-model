@@ -25,32 +25,31 @@ class ChesapeakeSegmentor(L.LightningModule):
         lr (float): Learning rate.
     """
 
-    def __init__(  # # noqa: PLR0913
-        self,
-        num_classes,
-        ckpt_path,
-        lr,
-        wd,
-        b1,
-        b2,
-    ):
+    def __init__(self, num_classes, ckpt_path, lr, wd, b1, b2):
         super().__init__()
-        self.save_hyperparameters()  # Save hyperparameters for checkpointing
+        self.save_hyperparameters()
+
         self.model = Segmentor(
             num_classes=num_classes,
             ckpt_path=ckpt_path,
         )
 
-        self.loss_fn = smp.losses.FocalLoss(mode="multiclass")
-        self.iou = MulticlassJaccardIndex(
-            num_classes=num_classes,
-            average="weighted",
-        )
-        self.f1 = F1Score(
-            task="multiclass",
-            num_classes=num_classes,
-            average="weighted",
-        )
+        # Initialize loss function with ignore_index=0
+        self.loss_fn = smp.losses.FocalLoss(mode="multiclass", ignore_index=0)
+
+        # Initialize metrics with ignore_index=0
+        metric_kwargs = {
+            'num_classes': num_classes,
+            'average': 'macro',
+            'ignore_index': 0,  # Ignore zero values
+            'validate_args': False
+        }
+
+        self.iou = MulticlassJaccardIndex(**metric_kwargs)
+        self.f1 = F1Score(task="multiclass", **metric_kwargs)
+
+        # Store for use in forward/training
+        self.num_classes = num_classes
 
     def forward(self, datacube):
         """
@@ -63,8 +62,8 @@ class ChesapeakeSegmentor(L.LightningModule):
         Returns:
             torch.Tensor: The segmentation logits.
         """
-        # TODO update these to match HLS
-        waves = torch.tensor([0.65, 0.56, 0.48, 0.842])  # NAIP wavelengths
+
+        waves = torch.tensor([0.493, 0.56, 0.665, 0.842, 1.61, 2.19])  # HLS wavelengths
         gsd = torch.tensor(30.0)  # HLS GSD
 
         # Forward pass through the network
@@ -114,27 +113,49 @@ class ChesapeakeSegmentor(L.LightningModule):
     def shared_step(self, batch, batch_idx, phase):
         """
         Shared step for training and validation.
-
-        Args:
-            batch (dict): A dictionary containing the batch data.
-            batch_idx (int): The index of the batch.
-            phase (str): The phase (train or val).
-
-        Returns:
-            torch.Tensor: The loss value.
         """
-        labels = batch["label"].long()
-        outputs = self(batch)
-        outputs = F.interpolate(
-            outputs,
-            size=(224, 224),
-            mode="bilinear",
-            align_corners=False,
-        )  # Resize to match labels size
+        # Get labels - should be [B, 1, H, W]
+        labels = batch["label"]
 
-        loss = self.loss_fn(outputs, labels)
-        iou = self.iou(outputs, labels)
-        f1 = self.f1(outputs, labels)
+        # Forward pass - should get [B, num_classes, H, W]
+        outputs = self(batch)
+
+        # Resize outputs if needed
+        if outputs.shape[-2:] != (224, 224):
+            outputs = F.interpolate(
+                outputs,
+                size=(224, 224),
+                mode="bilinear",
+                align_corners=False,
+            )
+
+        # Print shapes and ranges for debugging
+        # print(f"\nBatch {batch_idx} Debug Info:")
+        # print(f"outputs shape: {outputs.shape}")  # Should be [B, 110, 224, 224]
+        # print(f"labels shape: {labels.shape}")  # Should be [B, 1, 224, 224]
+
+        # For loss and metrics, we need [B, H, W] for labels
+        labels_2d = labels.squeeze(1)
+
+        # Calculate loss
+        loss = self.loss_fn(outputs, labels_2d)
+
+        # Get predicted classes
+        preds = torch.argmax(outputs, dim=1)  # [B, H, W]
+
+        # Debug value ranges
+        # print(f"Labels range: {labels_2d.min().item()} to {labels_2d.max().item()}")
+        # print(f"Predictions range: {preds.min().item()} to {preds.max().item()}")
+
+        # Calculate metrics
+        try:
+            iou = self.iou(preds, labels_2d)
+            f1 = self.f1(preds, labels_2d)
+        except Exception as e:
+            print(f"Error in metric calculation: {str(e)}")
+            print(f"Unique label values: {torch.unique(labels_2d).tolist()}")
+            print(f"Unique prediction values: {torch.unique(preds).tolist()}")
+            raise
 
         # Log metrics
         self.log(
@@ -164,7 +185,9 @@ class ChesapeakeSegmentor(L.LightningModule):
             logger=True,
             sync_dist=True,
         )
+
         return loss
+
 
     def training_step(self, batch, batch_idx):
         """

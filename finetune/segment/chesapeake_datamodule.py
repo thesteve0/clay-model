@@ -26,81 +26,108 @@ from torchvision.transforms import v2
 
 
 class ChesapeakeDataset(Dataset):
-    """
-    Dataset class for the Chesapeake Bay segmentation dataset.
-
-    Args:
-        chip_dir (str): Directory containing the image chips.
-        label_dir (str): Directory containing the labels.
-        metadata (Box): Metadata for normalization and other dataset-specific details.
-        platform (str): Platform identifier used in metadata.
-    """
-
-    def __init__(self, chip_dir, label_dir, metadata, platform):
+    def __init__(self, chip_dir, label_dir, metadata, platform, target_size=(224, 224)):
         self.chip_dir = Path(chip_dir)
         self.label_dir = Path(label_dir)
         self.metadata = metadata
+        self.target_size = target_size
         self.transform = self.create_transforms(
             mean=list(metadata[platform].bands.mean.values()),
             std=list(metadata[platform].bands.std.values()),
         )
 
         # Load chip and label file names
-        # The 1k here is to limit this to 1k chips, if you want all then remove it
-        # TODO I probably need to change these to match my naming convetions
-        # THe end result of this is 2 lists chips and labels
-        # chip[i] = label[i] The label that corresponds to that chip - just like we did in fiftyone code
-        self.chips = [chip_path.name for chip_path in self.chip_dir.glob("*.npy")][
-            :1000
-        ]
-        self.labels = [re.sub("_naip-new_", "_lc_", chip) for chip in self.chips]
+        # Let's do all the training data
+        self.chips = sorted([chip_path.name for chip_path in self.chip_dir.glob("*.npy")])
+        # self.chips = sorted([chip_path.name for chip_path in self.chip_dir.glob("*.npy")])[:1000]
+        self.labels = [re.sub("_chip", "_lulc_chip", chip) for chip in self.chips]
+
+        # Create label remapping
+        self._create_label_mapping()
+
+
+    # This is required because MulticlassJaccardIndex and F1Score assume consecutive label values
+    # But that is not guaranteed here since not all chips have all the classes
+    def _create_label_mapping(self):
+        """Create mapping from original labels to consecutive integers."""
+        # Load a few samples to get unique label values
+        unique_labels = set()
+        for label_file in self.labels[:10]:  # Check first 10 files for speed
+            label_path = self.label_dir / label_file
+            label = np.load(label_path)
+            unique_labels.update(np.unique(label))
+
+        # Sort unique labels to ensure consistent mapping
+        sorted_labels = sorted(unique_labels)
+
+        # Create mapping (keeping 0 as 0 if it exists)
+        if 0 in sorted_labels:
+            sorted_labels.remove(0)
+            self.label_map = {0: 0}  # Keep 0 mapped to 0
+            for i, label in enumerate(sorted_labels, start=1):
+                self.label_map[label] = i
+        else:
+            self.label_map = {label: i for i, label in enumerate(sorted_labels)}
+
+        # Store reverse mapping for reference
+        self.reverse_label_map = {v: k for k, v in self.label_map.items()}
+
+        # Store number of classes
+        self.num_classes = len(self.label_map)
+
+        # print("Label mapping created:")
+        # print(f"Original labels: {sorted_labels}")
+        # print(f"Mapping: {self.label_map}")
+        # print(f"Number of classes: {self.num_classes}")
 
     def create_transforms(self, mean, std):
-        """
-        Create normalization transforms.
-
-        Args:
-            mean (list): Mean values for normalization.
-            std (list): Standard deviation values for normalization.
-
-        Returns:
-            torchvision.transforms.Compose: A composition of transforms.
-        """
-        return v2.Compose(
-            [
-                v2.Normalize(mean=mean, std=std),
-            ],
-        )
+        return v2.Compose([
+            v2.Normalize(mean=mean, std=std),
+        ])
 
     def __len__(self):
         return len(self.chips)
 
     def __getitem__(self, idx):
-        """
-        Get a sample from the dataset.
+        """Get a sample from the dataset."""
+        try:
+            # Load chip and label
+            chip_path = self.chip_dir / self.chips[idx]
+            label_path = self.label_dir / self.labels[idx]
 
-        Args:
-            idx (int): Index of the sample.
+            # Load arrays
+            chip = np.load(chip_path).astype(np.float32)  # [6, 224, 224]
+            label = np.load(label_path)  # Variable shape
 
-        Returns:
-            dict: A dictionary containing the image, label, and additional information.
-        """
-        chip_name = self.chip_dir / self.chips[idx]
-        label_name = self.label_dir / self.labels[idx]
+            # Handle NaN values in chip
+            chip = np.nan_to_num(chip, 0)
 
-        chip = np.load(chip_name).astype(np.float32)
-        label = np.load(label_name)
+            # Remap labels to consecutive integers
+            remapped_label = np.zeros_like(label)
+            for orig_val, new_val in self.label_map.items():
+                remapped_label[label == orig_val] = new_val
 
+            # Ensure label is 3D with channel dimension
+            if remapped_label.ndim == 2:
+                remapped_label = np.expand_dims(remapped_label, axis=0)
 
+            # Convert to tensors
+            chip_tensor = torch.from_numpy(chip)
+            label_tensor = torch.from_numpy(remapped_label).long()
 
-        sample = {
-            "pixels": self.transform(torch.from_numpy(chip)),
-            "label": torch.from_numpy(label),
-            "time": torch.zeros(4),  # Placeholder for time information
-            "latlon": torch.zeros(4),  # Placeholder for latlon information
-        }
-        return sample
+            # Apply transforms to chip
+            chip_tensor = self.transform(chip_tensor)
 
+            return {
+                "pixels": chip_tensor,  # [6, 224, 224]
+                "label": label_tensor,  # [1, 224, 224]
+                "time": torch.zeros(4, dtype=torch.float32),  # [4]
+                "latlon": torch.zeros(4, dtype=torch.float32)  # [4]
+            }
+
+        except Exception as e:
+            print(f"Error loading sample {idx} from {chip_path}: {str(e)}")
+            raise
 
 class ChesapeakeDataModule(L.LightningDataModule):
     """

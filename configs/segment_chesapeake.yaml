@@ -1,18 +1,18 @@
 # lightning.pytorch==2.1.2
 seed_everything: 42
-data:  # These need to be changed
-  train_chip_dir: data/cvpr/ny/train/chips/
-  train_label_dir: data/cvpr/ny/train/labels/
-  val_chip_dir: data/cvpr/ny/val/chips/
-  val_label_dir: data/cvpr/ny/val/labels/
+data:
+  train_chip_dir: /home/spousty/git/clay/model/data/train/chips/
+  train_label_dir: /home/spousty/git/clay/model/data/train/labels/
+  val_chip_dir: /home/spousty/git/clay/model/data/valid/chips/
+  val_label_dir: /home/spousty/git/clay/model/data/valid/labels/
   metadata_path: configs/metadata.yaml
-  batch_size: 16
-  num_workers: 8
-  platform: hls  #TODO what do I set this to?
+  batch_size: 32
+  num_workers: 14
+  platform: hls
 model:
   num_classes: 110
   ckpt_path: checkpoints/clay-v1.5.ckpt
-  lr: 1e-5
+  lr: 2e-5
   wd: 0.05
   b1: 0.9
   b2: 0.95
@@ -23,7 +23,7 @@ trainer:
   num_nodes: 1
   precision: bf16-mixed
   log_every_n_steps: 5
-  max_epochs: 100
+  max_epochs: 30
   accumulate_grad_batches: 1
   default_root_dir: checkpoints/segment
   fast_dev_run: False
@@ -31,16 +31,16 @@ trainer:
   logger:  # either make an account and set it up or remove the whole logger section
     - class_path: lightning.pytorch.loggers.WandbLogger
       init_args:
-        entity: developmentseed
-        project: clay-segment
+        entity: thesteve0-molw
+        project: remote-sensing-comparison
         group: v1.5
-        log_model: false
+        log_model: True
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         dirpath: checkpoints/segment
         auto_insert_metric_name: False
-        filename: sc-county-lulc-segment_epoch-{epoch:02d}_val-iou-{val/iou:.4f} #TODO should I rename this?
+        filename: sc-county-lulc-segment_epoch-{epoch:02d}_val-iou-{val/iou:.4f}
         monitor: val/iou
         mode: max
         save_last: True

@@ -1,7 +1,7 @@
 seed_everything: 108
 data:
   data_dir: /fsx
-  size: 256
+  size: 224
   metadata_path: configs/metadata.yaml
   platforms:
     - landsat-c2l1

@@ -14,6 +14,7 @@ checkpoints/**/*.ckpt
 lightning_logs/
 wandb/
 logs/
+data/
 
 # Data files and folders
 data/**

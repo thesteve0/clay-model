@@ -1,5 +1,39 @@
 # copy this and name it HLS
 hls:
+  band_order:
+    - blue
+    - green
+    - red
+    - nir1
+    - swir1
+    - swir2
+  rgb_indices:
+    - 2
+    - 1
+    - 0
+  gsd: 30
+  bands:
+    mean:
+      blue: 1105.
+      green: 1355.
+      red: 1552.
+      nir1: 2743.
+      swir1: 2388.
+      swir2: 1835.
+    std:
+      blue: 1809.
+      green: 1757.
+      red: 1888.
+      nir1: 1742.
+      swir1: 1470.
+      swir2: 1379.
+    wavelength:
+      blue: 0.493
+      green: 0.56
+      red: 0.665
+      nir1: 0.842
+      swir1: 1.61
+      swir2: 2.19
 sentinel-2-l2a:
   band_order:
     - blue
