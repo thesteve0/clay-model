@@ -15,6 +15,7 @@ geopandas>=0.14.0
 matplotlib>=3.8.0
 scikit-image>=0.22.0
 scikit-learn>=1.4.0
+rasterio
 
 # Configuration and experiment tracking
 python-box>=7.1.0

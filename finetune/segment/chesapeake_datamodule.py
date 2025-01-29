@@ -122,7 +122,7 @@ class ChesapeakeDataset(Dataset):
                 "pixels": chip_tensor,  # [6, 224, 224]
                 "label": label_tensor,  # [1, 224, 224]
                 "time": torch.zeros(4, dtype=torch.float32),  # [4]
-                "latlon": torch.zeros(4, dtype=torch.float32)  # [4]
+                "latlon": torch.zeros(4, dtype=torch.float32),  # [4]
             }
 
         except Exception as e:

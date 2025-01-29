@@ -1,4 +1,6 @@
 """
+THIS IS NOT THE ONE WE RUN! THE ONE WE RUN IS IN THE ROOT OF THE REPO
+
 Command line interface to run the neural network model!
 
 From the project root directory, do:
@@ -16,6 +18,7 @@ from finetune.segment.chesapeake_datamodule import ChesapeakeDataModule  # noqa:
 from finetune.segment.chesapeake_model import ChesapeakeSegmentor  # noqa: F401
 
 
+
 # %%
 def cli_main():
     """
@@ -29,7 +32,7 @@ def cli_main():
     return cli
 
 
-# %%
+TH# %%
 if __name__ == "__main__":
     cli_main()
 
